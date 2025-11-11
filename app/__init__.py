@@ -11,7 +11,7 @@ def create_app():
 
     @app.get("/ping")
     def ping():
-        return jsonify({"status": "ok", "data": "pong"}), 200
+        return jsonify({"status": "ok", "data": "pooong"}), 200
 
     return app
 

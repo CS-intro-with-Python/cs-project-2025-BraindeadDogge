@@ -23,7 +23,7 @@ def check_ping(base_url: str) -> None:
     response = requests.get(url, timeout=5)
     response.raise_for_status()
     payload = response.json()
-    if payload.get("data") != "pong":
+    if payload.get("data") != "pooong":
         raise ValueError(f"Unexpected ping payload: {payload}")
 
 
