@@ -5,14 +5,67 @@ on:
   pull_request:
 
 jobs:
-  build-test:
+  build-image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build image
-        run: docker build -t linkshort-ci .
+      - name: Build backend image
+        run: docker build -t linkshort-ci backend
+
+      - name: Save image artifact
+        run: docker save linkshort-ci -o linkshort-ci.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linkshort-ci-image
+          path: linkshort-ci.tar
+          retention-days: 1
+
+  run-container:
+    needs: build-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linkshort-ci-image
+
+      - name: Load image
+        run: docker load -i linkshort-ci.tar
+
+      - name: Run container
+        run: docker run -d -p 8000:8000 --name linkshort linkshort-ci
+
+      - name: Verify container is running
+        run: |
+          sleep 3
+          docker ps --filter "name=linkshort" --filter "status=running" --format '{{.Names}}' | grep linkshort
+
+      - name: Docker logs on failure
+        if: failure()
+        run: docker logs linkshort || true
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f linkshort || true
+
+  route-check:
+    needs: run-container
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linkshort-ci-image
+
+      - name: Load image
+        run: docker load -i linkshort-ci.tar
 
       - name: Run container
         run: docker run -d -p 8000:8000 --name linkshort linkshort-ci
@@ -23,14 +76,14 @@ jobs:
           python-version: "3.11"
 
       - name: Install client dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r tests/backend_client/requirements.txt
 
       - name: Route check
-        run: python client/check_routes.py http://localhost:8000
+        run: python tests/backend_client/check_routes.py http://localhost:8000
 
       - name: Docker logs on failure
         if: failure()
-        run: docker logs linkshort
+        run: docker logs linkshort || true
 
       - name: Cleanup
         if: always()

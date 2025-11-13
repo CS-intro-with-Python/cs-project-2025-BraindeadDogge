@@ -1,6 +1,8 @@
 services:
-  web:
-    build: .
+  backend:
+    image: linkshort_backend
+    build:
+      context: ./backend
     ports:
       - "8000:8000"
     environment:
