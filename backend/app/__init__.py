@@ -14,7 +14,7 @@ def _generate_short_id(length: int = 6) -> str:
     candidate = secrets.token_hex(length // 2)
     if candidate not in _url_store:
       return candidate
-# TODO - if _url_store is full - extend length
+# @todo - if _url_store is full - extend length
 
 
 def create_app():
@@ -46,6 +46,15 @@ def create_app():
         "short_url": short_link,
       }
     ), 201
+
+  @app.get("/debug/log-stores")
+  def log_stores():
+    return jsonify(
+      {
+        "url_store": _url_store,
+        "reverse_store": _reverse_store,
+      }
+    ), 200
 
   @app.get("/<short_id>")
   def resolve_short(short_id: str):
