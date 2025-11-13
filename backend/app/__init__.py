@@ -32,13 +32,15 @@ def create_app():
     short_id = _generate_short_id()
     _url_store[short_id] = original_url
 
-    short_link = f"{request.host_url.rstrip('/')}/{short_id}"
+    proto = request.headers.get("X-Forwarded-Proto", request.scheme)
+    host = request.headers.get("X-Forwarded-Host", request.host)
+    short_link = f"{proto}://{host}/{short_id}"
     return jsonify(
-        {
-            "original_url": original_url,
-            "short_id": short_id,
-            "short_url": short_link,
-        }
+      {
+        "original_url": original_url,
+        "short_id": short_id,
+        "short_url": short_link,
+      }
     ), 201
 
   @app.get("/<short_id>")
