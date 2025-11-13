@@ -5,6 +5,7 @@ from typing import Dict
 from flask import Flask, jsonify, redirect, request
 
 _url_store: Dict[str, str] = {}
+_reverse_store: Dict[str, str] = {}
 
 
 def _generate_short_id(length: int = 6) -> str:
@@ -29,8 +30,11 @@ def create_app():
     if not original_url:
       return jsonify({"error": "Missing required 'url' query parameter"}), 400
 
-    short_id = _generate_short_id()
-    _url_store[short_id] = original_url
+    short_id = _reverse_store.get(original_url)
+    if not short_id:
+      short_id = _generate_short_id()
+      _url_store[short_id] = original_url
+      _reverse_store[original_url] = short_id
 
     proto = request.headers.get("X-Forwarded-Proto", request.scheme)
     host = request.headers.get("X-Forwarded-Host", request.host)
