@@ -4,6 +4,8 @@
 
 Link Shortener V1 is a Flask service that turns any URL into a reusable short link that temporary(until i implement DataBase) lives for as long as the server process is running. It exposes a ping endpoint for Railway Healthcheck and a shortening endpoint that returns fully qualified redirect URLs.
 
+Currently running on https://grigory.up.railway.app/ping
+
 ## Setup
 
 _Visit `http://localhost:8000/ping` to verify the service is up._
