@@ -1,9 +1,29 @@
 services:
   backend:
-    image: linkshort_backend
     build:
       context: ./backend
+    image: linkshort_backend
+    container_name: linkshort-backend-prod
     ports:
       - "8000:8000"
     environment:
       - PORT=8000
+    profiles:
+      - prod
+
+  backend-dev:
+    build:
+      context: ./backend
+    image: linkshort_backend-dev
+    container_name: linkshort-backend-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app # live code from host
+    environment:
+      FLASK_APP: app:create_app
+      FLASK_ENV: development  # debugger + nicer errors
+    # Override Dockerfile CMD
+    command: flask run --host=0.0.0.0 --port=8000 --reload
+    profiles:
+      - dev

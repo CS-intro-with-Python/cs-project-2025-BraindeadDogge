@@ -1,38 +1,53 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/DESIFpxz)
-# CS_2024_project
+# Link Shortener V1
 
 ## Description
 
-Describe the project in 2-3 sentences (You can use more). 
+Link Shortener V1 is a Flask service that turns any URL into a reusable short link that temporary(until i implement DataBase) lives for as long as the server process is running. It exposes a ping endpoint for Railway Healthcheck and a shortening endpoint that returns fully qualified redirect URLs.
 
 ## Setup
 
-Describe the steps to set up the environment and run the application. This can be a bash script or docker commands.
+_Visit `http://localhost:8000/ping` to verify the service is up._
 
+### Production Environment — Gunicorn Server (multiple workers)
+
+```bash
+docker compose --profile prod up --build
+# later
+docker compose --profile prod down
 ```
-Your commands
 
+### Development Environment — Live Reload (Flask)
+
+```bash
+docker compose --profile dev up --build
+# later
+docker compose --profile dev down
+```
+
+### Manual Docker Build & Run (Standalone Mode)
+
+```bash
+# Build the backend image
+docker build -t linkshort backend
+# Run the container locally
+docker run -d -p 8000:8000 --name linkshort linkshort
 ```
 
 ## Requirements
 
-Describe technologies, libraries, languages you are using (this can be updated in the future).
+- Docker and Docker Compose for containerized builds and orchestration.
+- GitHub Actions powers the CI scripts already included in the repo.
+- CD is executed entirely by Railway without any extra deployment code here.
 
 ## Features
 
-Describe the main features the application performs.
-
-* Feature 1
-* Feature 2
+- Feature 1: `GET /shorten?url=...` returns a short link for any long URL and reuses existing mappings.
+- Feature 2: `GET /<short_id>` resolves stored links, while `GET /ping` confirms service health and `GET /debug/log-stores` exposes the in-memory stores for debugging.
 
 ## Git
 
-Specify which branch will store the latest stable version of the application
+The `main` branch holds the latest stable version of the application.
 
 ## Success Criteria
 
-Describe the criteria by which the success of the project can be determined
-(this will be updated in the future)
-
-* Criteria 1
-
+- Criteria 1: `/ping` responds with `{"status":"ok","data":"pong"}` under normal load, `/shorten` issues unique IDs that consistently redirect to the original URL, and the Dockerized build passes the CI smoke tests.
