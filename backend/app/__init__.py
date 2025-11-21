@@ -141,7 +141,7 @@ def create_app():
     original_url = (request.args.get("url") or "").strip()
     if not original_url:
       return jsonify({"error": "Missing required 'url' query parameter"}), 400
-    # @todo check if url is valid
+    # @todo check if url is valid (https is req)
     
     short_id = _get_or_create_short_id(pool, original_url)
 
