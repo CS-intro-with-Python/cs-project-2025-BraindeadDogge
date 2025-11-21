@@ -48,17 +48,21 @@ def _ensure_schema(pool: ConnectionPool) -> None:
   """Create the storage table if it doesn't exist."""
   with pool.connection() as conn:
     with conn.cursor() as cur:
-      cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS short_urls (
-          id BIGSERIAL PRIMARY KEY,
-          short_id VARCHAR(32) UNIQUE NOT NULL,
-          original_url TEXT UNIQUE NOT NULL,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-        """
-      )
-      conn.commit()
+      try:
+        cur.execute(
+          """
+          CREATE TABLE IF NOT EXISTS short_urls (
+            id BIGSERIAL PRIMARY KEY,
+            short_id VARCHAR(32) UNIQUE NOT NULL,
+            original_url TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+          """
+        )
+        conn.commit()
+      except errors.DuplicateTable:
+        # Another worker beat us to creating the table; safe to ignore.
+        conn.rollback()
 
 
 def _get_or_create_short_id(pool: ConnectionPool, original_url: str) -> str:
