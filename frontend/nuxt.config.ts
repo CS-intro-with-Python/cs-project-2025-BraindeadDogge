@@ -10,6 +10,11 @@ export default defineNuxtConfig({
     '@nuxt/hints'
   ],
 
+  runtimeConfig: {
+    basicAuthUser: process.env.NUXT_BASIC_AUTH_USER || '',
+    basicAuthPassword: process.env.NUXT_BASIC_AUTH_PASSWORD || ''
+  },
+
   devtools: {
     enabled: true
   },
