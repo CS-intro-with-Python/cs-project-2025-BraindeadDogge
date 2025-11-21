@@ -1,34 +1,42 @@
-# Build Stage 1
+# syntax=docker/dockerfile:1
 
-FROM node:22-alpine AS build
+FROM node:22-bookworm-slim AS base
 WORKDIR /app
-
+ENV NODE_ENV=production
 RUN corepack enable
 
-# Copy package.json and your lockfile, here we add pnpm-lock.yaml for illustration
-COPY package.json pnpm-lock.yaml .npmrc ./
+# Install dependencies (build)
+FROM base AS deps
+ENV NODE_ENV=development
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    pkg-config \
+    libsqlite3-dev \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-RUN pnpm install
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+RUN pnpm install --frozen-lockfile
 
-# Copy the entire project
-COPY . ./
-
-# Build the project
+# Build the Nuxt app
+FROM base AS build
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 RUN pnpm run build
 
-# Build Stage 2
+# Runtime image
+FROM base AS runner
+RUN apt-get update && apt-get install -y --no-install-recommends libsqlite3-0 \
+  && rm -rf /var/lib/apt/lists/*
 
-FROM node:22-alpine
-WORKDIR /app
-
-# Only `.output` folder is needed from the build stage
-COPY --from=build /app/.output/ ./
-
-# Change the port and host
-ENV PORT=3000
+ENV NODE_ENV=production
 ENV HOST=0.0.0.0
+ENV PORT=3000
+
+WORKDIR /app
+COPY --from=build /app/.output ./.output
 
 EXPOSE 3000
-
-CMD ["node", "/app/server/index.mjs"]
+CMD ["node", ".output/server/index.mjs"]
