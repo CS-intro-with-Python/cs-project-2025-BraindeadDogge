@@ -10,16 +10,16 @@ export default defineNuxtConfig({
     '@nuxt/hints'
   ],
 
-  runtimeConfig: {
-    basicAuthUser: process.env.NUXT_BASIC_AUTH_USER || '',
-    basicAuthPassword: process.env.NUXT_BASIC_AUTH_PASSWORD || ''
-  },
-
   devtools: {
     enabled: true
   },
 
   css: ['~/assets/css/main.css'],
+
+  runtimeConfig: {
+    basicAuthUser: process.env.NUXT_BASIC_AUTH_USER || '',
+    basicAuthPassword: process.env.NUXT_BASIC_AUTH_PASSWORD || ''
+  },
 
   routeRules: {
     '/docs': { redirect: '/docs/getting-started', prerender: false }
