@@ -8,6 +8,10 @@ services:
       - "8000:8000"
     environment:
       - PORT=8000
+      - DATABASE_URL=postgresql://linkshort:linkshort@postgres:5432/linkshort
+      - DB_POOL_MAX=10
+    depends_on:
+      - postgres
     profiles:
       - prod
 
@@ -23,7 +27,30 @@ services:
     environment:
       FLASK_APP: app:create_app
       FLASK_ENV: development  # debugger + nicer errors
+      DATABASE_URL: postgresql://linkshort:linkshort@postgres:5432/linkshort
+      DB_POOL_MAX: 5
     # Override Dockerfile CMD
     command: flask run --host=0.0.0.0 --port=8000 --reload
+    depends_on:
+      - postgres
     profiles:
       - dev
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: linkshort-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: linkshort
+      POSTGRES_USER: linkshort
+      POSTGRES_PASSWORD: linkshort
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    profiles:
+      - prod
+      - dev
+
+volumes:
+  postgres-data:

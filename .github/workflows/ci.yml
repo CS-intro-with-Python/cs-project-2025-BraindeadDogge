@@ -36,8 +36,24 @@ jobs:
       - name: Load image
         run: docker load -i linkshort-ci.tar
 
+      - name: Create network
+        run: docker network create common-network || true
+
+      - name: Run PostgreSQL
+        run: |
+          docker run -d --name linkshort-postgres --network common-network \
+            -e POSTGRES_DB=linkshort \
+            -e POSTGRES_USER=linkshort \
+            -e POSTGRES_PASSWORD=linkshort \
+            postgres:15-alpine
+
       - name: Run container
-        run: docker run -d -p 8000:8000 --name linkshort linkshort-ci
+        run: |
+          docker run -d -p 8000:8000 --name linkshort --network common-network \
+            -e PORT=8000 \
+            -e DATABASE_URL=postgresql://linkshort:linkshort@linkshort-postgres:5432/linkshort \
+            -e DB_CONNECT_RETRIES=20 \
+            linkshort-ci
 
       - name: Verify container is running
         run: |
@@ -46,11 +62,16 @@ jobs:
 
       - name: Docker logs on failure
         if: failure()
-        run: docker logs linkshort || true
+        run: |
+          docker logs linkshort || true
+          docker logs linkshort-postgres || true
 
       - name: Cleanup
         if: always()
-        run: docker rm -f linkshort || true
+        run: |
+          docker rm -f linkshort || true
+          docker rm -f linkshort-postgres || true
+          docker network rm common-network || true
 
   route-check:
     needs: run-container
@@ -67,8 +88,24 @@ jobs:
       - name: Load image
         run: docker load -i linkshort-ci.tar
 
+      - name: Create network
+        run: docker network create linkshort-ci || true
+
+      - name: Run PostgreSQL
+        run: |
+          docker run -d --name linkshort-postgres --network common-network \
+            -e POSTGRES_DB=linkshort \
+            -e POSTGRES_USER=linkshort \
+            -e POSTGRES_PASSWORD=linkshort \
+            postgres:15-alpine
+
       - name: Run container
-        run: docker run -d -p 8000:8000 --name linkshort linkshort-ci
+        run: |
+          docker run -d -p 8000:8000 --name linkshort --network common-network \
+            -e PORT=8000 \
+            -e DATABASE_URL=postgresql://linkshort:linkshort@linkshort-postgres:5432/linkshort \
+            -e DB_CONNECT_RETRIES=20 \
+            linkshort-ci
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -83,8 +120,13 @@ jobs:
 
       - name: Docker logs on failure
         if: failure()
-        run: docker logs linkshort || true
+        run: |
+          docker logs linkshort || true
+          docker logs linkshort-postgres || true
 
       - name: Cleanup
         if: always()
-        run: docker rm -f linkshort || true
+        run: |
+          docker rm -f linkshort || true
+          docker rm -f linkshort-postgres || true
+          docker network rm common-network || true

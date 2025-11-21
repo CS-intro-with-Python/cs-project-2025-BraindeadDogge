@@ -2,10 +2,9 @@
 
 ## Description
 
-Link Shortener V1 is a Flask service that turns any URL into a reusable short link that temporary(until i implement DataBase) lives for as long as the server process is running. It exposes a ping endpoint for Railway Healthcheck and a shortening endpoint that returns fully qualified redirect URLs.
+Link Shortener V1 is a Flask + PostgreSQL API that converts long URLs into reusable short links. Mappings live inside Postgres so they persist across container restarts, and the repository ships with Docker/Compose workflows plus GitHub Actions CI while Railway owns CD.
 
-Currently running on https://grigory.up.railway.app/ping
-
+Currently running on https://grigory.up.railway.app/ping and [exq.io/ping](https://www.exq.io/ping)
 ## Setup
 
 _Visit `http://localhost:8000/ping` to verify the service is up._
@@ -26,25 +25,15 @@ docker compose --profile dev up --build
 docker compose --profile dev down
 ```
 
-### Manual Docker Build & Run (Standalone Mode)
-
-```bash
-# Build the backend image
-docker build -t linkshort backend
-# Run the container locally
-docker run -d -p 8000:8000 --name linkshort linkshort
-```
-
 ## Requirements
 
-- Docker and Docker Compose for containerized builds and orchestration.
-- GitHub Actions powers the CI scripts already included in the repo.
-- CD is executed entirely by Railway without any extra deployment code here.
+- Docker and Docker Compose orchestrating both backend and database containers(PostgreSQL 15).
+- GitHub Actions powers the CI workflows stored in `.github/workflows`, while CD is handled entirely by Railway even though no extra deployment code exists in the repo.
 
 ## Features
 
-- Feature 1: `GET /shorten?url=...` returns a short link for any long URL and reuses existing mappings.
-- Feature 2: `GET /<short_id>` resolves stored links, while `GET /ping` confirms service health and `GET /debug/log-stores` exposes the in-memory stores for debugging.
+- Feature 1: `GET /shorten?url=...` issues a short ID stored in PostgreSQL, reusing the same ID whenever the long URL already exists.
+- Feature 2: `GET /<short_id>` performs a database lookup and redirects to the stored URL, `/ping` reports service health, and `/debug/log-stores` exposes the latest database rows for debugging.
 
 ## Git
 
@@ -52,4 +41,4 @@ The `main` branch holds the latest stable version of the application.
 
 ## Success Criteria
 
-- Criteria 1: `/ping` responds with `{"status":"ok","data":"pong"}` under normal load, `/shorten` issues unique IDs that consistently redirect to the original URL, and the Dockerized build passes the CI smoke tests.
+- Criteria 1: The Compose stack builds successfully, `/ping` stays healthy, `/shorten` persists/reuses mappings in PostgreSQL, CI’s route check remains green, and Railway continues to publish the Docker image as the CD target.

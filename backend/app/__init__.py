@@ -1,24 +1,136 @@
 import os
 import secrets
-from typing import Dict
+import time
+from datetime import datetime
+from typing import Dict, List, Optional
 
+import psycopg
+from psycopg import errors
+from psycopg_pool import ConnectionPool
 from flask import Flask, jsonify, redirect, request
 
-_url_store: Dict[str, str] = {}
-_reverse_store: Dict[str, str] = {}
+_pool: Optional[ConnectionPool] = None
 
 
 def _generate_short_id(length: int = 6) -> str:
-  """Generate a unique and short id"""
+  """Generate a short id comprised of hex characters."""
+  return secrets.token_hex(length // 2)
+
+
+def _init_pool() -> ConnectionPool:
+  """Initialize (or reuse) the global PostgreSQL connection pool."""
+  global _pool
+  if _pool is not None:
+    return _pool
+
+  conninfo = os.getenv(
+    "DATABASE_URL", "postgresql://linkshort:linkshort@localhost:5432/linkshort"
+  )
+  max_size = max(1, int(os.getenv("DB_POOL_MAX", "10")))
+  retries = int(os.getenv("DB_CONNECT_RETRIES", "10"))
+  wait = float(os.getenv("DB_CONNECT_RETRY_INTERVAL", "1.0"))
+  last_error: Optional[Exception] = None
+
+  for attempt in range(1, retries + 1):
+    try:
+      pool = ConnectionPool(conninfo=conninfo, min_size=1, max_size=max_size)
+      _ensure_schema(pool)
+      _pool = pool
+      return pool
+    except psycopg.OperationalError as exc:
+      last_error = exc
+      time.sleep(wait)
+
+  raise RuntimeError("Unable to establish database connection") from last_error
+
+
+def _ensure_schema(pool: ConnectionPool) -> None:
+  """Create the storage table if it doesn't exist."""
+  with pool.connection() as conn:
+    with conn.cursor() as cur:
+      cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS short_urls (
+          id BIGSERIAL PRIMARY KEY,
+          short_id VARCHAR(32) UNIQUE NOT NULL,
+          original_url TEXT UNIQUE NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        """
+      )
+      conn.commit()
+
+
+def _get_or_create_short_id(pool: ConnectionPool, original_url: str) -> str:
+  """Fetch an existing mapping or insert a new short id."""
   while True:
-    candidate = secrets.token_hex(length // 2)
-    if candidate not in _url_store:
-      return candidate
-# @todo - if _url_store is full - extend length
+    with pool.connection() as conn:
+      with conn.cursor() as cur:
+        cur.execute(
+          "SELECT short_id FROM short_urls WHERE original_url = %s",
+          (original_url,),
+        )
+        row = cur.fetchone()
+        if row:
+          return row[0]
+
+        short_id = _generate_short_id()
+        try:
+          cur.execute(
+            "INSERT INTO short_urls (short_id, original_url) VALUES (%s, %s) RETURNING short_id",
+            (short_id, original_url),
+          )
+          assigned = cur.fetchone()[0]
+          conn.commit()
+          return assigned
+        except errors.UniqueViolation:
+          conn.rollback()
+          continue
+
+
+def _resolve_short_id(pool: ConnectionPool, short_id: str) -> Optional[str]:
+  with pool.connection() as conn:
+    with conn.cursor() as cur:
+      cur.execute(
+        "SELECT original_url FROM short_urls WHERE short_id = %s",
+        (short_id,),
+      )
+      row = cur.fetchone()
+  return row[0] if row else None
+
+
+def _dump_store(pool: ConnectionPool) -> List[Dict[str, str]]:
+  with pool.connection() as conn:
+    with conn.cursor() as cur:
+      cur.execute(
+        """
+        SELECT short_id, original_url, created_at
+        FROM short_urls
+        ORDER BY created_at DESC
+        LIMIT 100
+        """
+      )
+      rows = cur.fetchall()
+
+  result: List[Dict[str, str]] = []
+  for short_id, original_url, created_at in rows:
+    created_at_iso = created_at.isoformat() if isinstance(
+      created_at, datetime) else str(created_at)
+
+    result.append(
+      {
+        "short_id": short_id,
+        "original_url": original_url,
+        "created_at": created_at_iso,
+      }
+    )
+  return result
 
 
 def create_app():
   app = Flask(__name__)
+  pool = _init_pool()
+  app.config["DB_POOL"] = pool
 
   @app.get("/ping")
   def ping():
@@ -29,12 +141,9 @@ def create_app():
     original_url = (request.args.get("url") or "").strip()
     if not original_url:
       return jsonify({"error": "Missing required 'url' query parameter"}), 400
-
-    short_id = _reverse_store.get(original_url)
-    if not short_id:
-      short_id = _generate_short_id()
-      _url_store[short_id] = original_url
-      _reverse_store[original_url] = short_id
+    # @todo check if url is valid
+    
+    short_id = _get_or_create_short_id(pool, original_url)
 
     proto = request.headers.get("X-Forwarded-Proto", request.scheme)
     host = request.headers.get("X-Forwarded-Host", request.host)
@@ -49,16 +158,11 @@ def create_app():
 
   @app.get("/debug/log-stores")
   def log_stores():
-    return jsonify(
-      {
-        "url_store": _url_store,
-        "reverse_store": _reverse_store,
-      }
-    ), 200
+    return jsonify({"rows": _dump_store(pool)}), 200
 
   @app.get("/<short_id>")
   def resolve_short(short_id: str):
-    target = _url_store.get(short_id)
+    target = _resolve_short_id(pool, short_id)
     if not target:
       return jsonify({"error": "Unknown short link"}), 404
     return redirect(target)
