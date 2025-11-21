@@ -89,7 +89,7 @@ jobs:
         run: docker load -i linkshort-ci.tar
 
       - name: Create network
-        run: docker network create linkshort-ci || true
+        run: docker network create common-network || true
 
       - name: Run PostgreSQL
         run: |
