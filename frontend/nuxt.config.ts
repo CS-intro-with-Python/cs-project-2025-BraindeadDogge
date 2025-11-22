@@ -30,7 +30,7 @@ export default defineNuxtConfig({
   nitro: {
     prerender: {
       routes: [
-        // '/'
+        // '/' // @audit temp for Basic Auth HTTP
       ],
       crawlLinks: true
     }
