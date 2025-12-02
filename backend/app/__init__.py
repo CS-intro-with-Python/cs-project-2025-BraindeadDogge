@@ -46,8 +46,11 @@ def _init_pool() -> ConnectionPool:
 
 def _ensure_schema(pool: ConnectionPool) -> None:
   """Create the storage table if it doesn't exist."""
+  # Guard schema creation so multiple gunicorn workers don't race on startup.
+  lock_id = int(os.getenv("DB_SCHEMA_LOCK_ID", "4242"))
   with pool.connection() as conn:
     with conn.cursor() as cur:
+      cur.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
       try:
         cur.execute(
           """
@@ -60,9 +63,12 @@ def _ensure_schema(pool: ConnectionPool) -> None:
           """
         )
         conn.commit()
-      except errors.DuplicateTable:
-        # Another worker beat us to creating the table; safe to ignore.
+      except (errors.DuplicateTable, errors.UniqueViolation):
+        # Another worker finished the creation first; ignore and continue.
         conn.rollback()
+      finally:
+        cur.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
+        conn.commit()
 
 
 def _get_or_create_short_id(pool: ConnectionPool, original_url: str) -> str:
