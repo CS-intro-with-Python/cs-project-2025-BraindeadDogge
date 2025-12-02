@@ -8,6 +8,7 @@ import psycopg
 from psycopg import errors
 from psycopg_pool import ConnectionPool
 from flask import Flask, jsonify, redirect, request
+from flask_cors import CORS
 
 _pool: Optional[ConnectionPool] = None
 
@@ -139,6 +140,12 @@ def _dump_store(pool: ConnectionPool) -> List[Dict[str, str]]:
 
 def create_app():
   app = Flask(__name__)
+  allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+  ]
+  CORS(app, origins=allowed_origins)
   pool = _init_pool()
   app.config["DB_POOL"] = pool
 
