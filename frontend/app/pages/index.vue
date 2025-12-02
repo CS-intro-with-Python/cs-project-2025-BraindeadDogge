@@ -6,6 +6,7 @@ import { useDebounceFn } from '@vueuse/core'
 const { data: page } = await useAsyncData('index', () =>
   queryCollection('index').first()
 )
+const config = useRuntimeConfig()
 
 const title = page.value?.seo?.title || page.value?.title
 const description = page.value?.seo?.description || page.value?.description
@@ -21,6 +22,8 @@ useSeoMeta({
 // Shorten url algorithm
 const rawLink: Ref<string> = ref('')
 const openResults: Ref<boolean> = ref(false)
+const shortLink: Ref<string> = ref('')
+const isShortening: Ref<boolean> = ref(false)
 
 watch(rawLink, (value) => {
   const sanitized = value.replace(/^https?:\/\//i, '')
@@ -28,12 +31,28 @@ watch(rawLink, (value) => {
 })
 
 async function shortenURL() {
-  return new Promise<void>(res =>
-    setTimeout(() => {
-      openResults.value = true
-      res()
-    }, 1000)
-  )
+  if (!rawLink.value.trim()) return
+
+  isShortening.value = true
+  try {
+    const payload = await $fetch<{
+      original_url: string
+      short_id: string
+      short_url: string
+    }>('/shorten', {
+      baseURL: config.public.backendBaseUrl,
+      params: { url: `https://${rawLink.value}` }
+    })
+    console.log(payload)
+
+    shortLink.value = payload.short_url
+    openResults.value = true
+    debouncedRenderQr()
+  } catch (error) {
+    console.error('Failed to shorten URL', error)
+  } finally {
+    isShortening.value = false
+  }
 }
 
 let QRCodeLib: typeof QRCode | null = null
@@ -53,7 +72,7 @@ const renderQr = async () => {
 
     await QRCodeLib.toCanvas(
       qrCanvas.value,
-      'https://' + rawLink.value, // @todo change rawLink to the result link
+      shortLink.value || `https://${rawLink.value || ''}`,
       {
         margin: 2,
         scale: 8,
@@ -74,7 +93,7 @@ const debouncedRenderQr = useDebounceFn(renderQr, 150)
 onMounted(renderQr)
 
 // rerender whenever input or colors change
-watch([openResults, fgColor, bgColor], () => {
+watch([shortLink, fgColor, bgColor], () => {
   debouncedRenderQr()
 })
 
@@ -126,7 +145,7 @@ watch([openResults, fgColor, bgColor], () => {
           size="xl"
           color="primary"
           variant="outline"
-          loading-auto
+          :loading="isShortening"
           @click="shortenURL"
         >
           Shorten

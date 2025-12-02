@@ -18,7 +18,11 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     basicAuthUser: process.env.NUXT_BASIC_AUTH_USER || '',
-    basicAuthPassword: process.env.NUXT_BASIC_AUTH_PASSWORD || ''
+    basicAuthPassword: process.env.NUXT_BASIC_AUTH_PASSWORD || '',
+    public: {
+      backendBaseUrl:
+        process.env.NUXT_PUBLIC_BACKEND_BASE_URL || 'http://localhost:8000'
+    }
   },
 
   routeRules: {
