@@ -11,7 +11,8 @@ const createBaseSchema = () => z.object({
 })
 
 const createFeatureItemSchema = () => createBaseSchema().extend({
-  icon: z.string().nonempty().editor({ input: 'icon' })
+  icon: z.string().nonempty().editor({ input: 'icon' }),
+  upcoming: z.boolean().optional()
 })
 
 const createLinkSchema = () => z.object({
@@ -25,50 +26,14 @@ const createLinkSchema = () => z.object({
   variant: variantEnum.optional()
 })
 
-const createImageSchema = () => z.object({
-  src: z.string().nonempty().editor({ input: 'media' }),
-  alt: z.string().optional(),
-  loading: z.enum(['lazy', 'eager']).optional(),
-  srcset: z.string().optional()
-})
-
 export const collections = {
   index: defineCollection({
     source: '0.index.yml',
     type: 'page',
     schema: z.object({
-      hero: z.object(({
-        links: z.array(createLinkSchema())
-      })),
-      sections: z.array(
-        createBaseSchema().extend({
-          id: z.string().nonempty(),
-          orientation: orientationEnum.optional(),
-          reverse: z.boolean().optional(),
-          features: z.array(createFeatureItemSchema())
-        })
-      ),
       features: createBaseSchema().extend({
         items: z.array(createFeatureItemSchema())
       }),
-      testimonials: createBaseSchema().extend({
-        headline: z.string().optional(),
-        items: z.array(
-          z.object({
-            quote: z.string().nonempty(),
-            user: z.object({
-              name: z.string().nonempty(),
-              description: z.string().nonempty(),
-              to: z.string().nonempty(),
-              target: z.string().nonempty(),
-              avatar: createImageSchema()
-            })
-          })
-        )
-      }),
-      cta: createBaseSchema().extend({
-        links: z.array(createLinkSchema())
-      })
     })
   }),
   docs: defineCollection({
