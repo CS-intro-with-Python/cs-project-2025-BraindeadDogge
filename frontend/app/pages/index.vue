@@ -1,60 +1,123 @@
 <script setup lang="ts">
-const { data: page } = await useAsyncData("index", () =>
-  queryCollection("index").first(),
-);
+// Generate QR Code
+import type QRCode from 'qrcode'
+import { useDebounceFn } from '@vueuse/core'
 
-const title = page.value?.seo?.title || page.value?.title;
-const description = page.value?.seo?.description || page.value?.description;
+const { data: page } = await useAsyncData('index', () =>
+  queryCollection('index').first()
+)
+
+const title = page.value?.seo?.title || page.value?.title
+const description = page.value?.seo?.description || page.value?.description
 
 useSeoMeta({
-  titleTemplate: "",
+  titleTemplate: '',
   title,
   ogTitle: title,
   description,
-  ogDescription: description,
-});
+  ogDescription: description
+})
 
-const raw_link: Ref<string> = ref("");
-const open_results: Ref<boolean> = ref(false);
+// Shorten url algorithm
+const rawLink: Ref<string> = ref('')
+const openResults: Ref<boolean> = ref(false)
 
-watch(raw_link, (value) => {
-  const sanitized = value.replace(/^https?:\/\//i, "");
-  if (sanitized !== value) raw_link.value = sanitized;
-});
+watch(rawLink, (value) => {
+  const sanitized = value.replace(/^https?:\/\//i, '')
+  if (sanitized !== value) rawLink.value = sanitized
+})
 
 async function shortenURL() {
-  return new Promise<void>((res) =>
+  return new Promise<void>(res =>
     setTimeout(() => {
-      open_results.value = true;
-      res();
-    }, 1000),
-  );
+      openResults.value = true
+      res()
+    }, 1000)
+  )
 }
+
+let QRCodeLib: typeof QRCode | null = null
+
+const fgColor = ref('#000000') // main color ("dark" modules)
+const bgColor = ref('#ffffff') // background color ("light" modules)
+const qrCanvas = ref<HTMLCanvasElement | null>(null)
+
+const renderQr = async () => {
+  if (!import.meta.client || !qrCanvas.value) return
+
+  try {
+    if (!QRCodeLib) {
+      const mod = await import('qrcode')
+      QRCodeLib = mod.default || mod
+    }
+
+    await QRCodeLib.toCanvas(
+      qrCanvas.value,
+      'https://' + rawLink.value, // @todo change rawLink to the result link
+      {
+        margin: 2,
+        scale: 8,
+        color: {
+          dark: fgColor.value, // main
+          light: bgColor.value // background
+        }
+      }
+    )
+  } catch (err) {
+    console.error('Failed to render QR', err)
+  }
+}
+
+const debouncedRenderQr = useDebounceFn(renderQr, 150)
+
+// initial render
+onMounted(renderQr)
+
+// rerender whenever input or colors change
+watch([openResults, fgColor, bgColor], () => {
+  debouncedRenderQr()
+})
+
+// const downloadQr = () => {
+//   if (!qrCanvas.value) return
+//   const link = document.createElement('a')
+//   link.href = qrCanvas.value.toDataURL('image/png')
+//   link.download = 'exq-links-qr.png' // @todo change file name
+//   link.click()
+// }
 </script>
 
 <template>
   <div v-if="page">
-    <UPageHero :title="page.title" :description="page.description">
+    <UPageHero
+      :title="page.title"
+      :description="page.description"
+    >
       <template #top>
         <HeroBackground />
       </template>
 
       <template #title>
-        <MDC :value="page.title" unwrap="p" />
+        <MDC
+          :value="page.title"
+          unwrap="p"
+        />
       </template>
 
       <template #links>
         <UInput
-          v-model="raw_link"
+          v-model="rawLink"
           placeholder="example.com"
           size="xl"
           :ui="{
             base: 'pl-14.5',
-            leading: 'pointer-events-none',
+            leading: 'pointer-events-none'
           }"
         >
           <template #leading>
-            <p class="text-sm text-muted">https://</p>
+            <p class="text-sm text-muted">
+              https://
+            </p>
           </template>
         </UInput>
 
@@ -65,14 +128,19 @@ async function shortenURL() {
           variant="outline"
           loading-auto
           @click="shortenURL"
-          >Shorten</UButton
         >
+          Shorten
+        </UButton>
       </template>
     </UPageHero>
 
-    <UModal v-model:open="open_results">
+    <UModal v-model:open="openResults">
       <template #content>
-        <Placeholder class="h-48 m-4" />
+        <ClientOnly>
+          <div class="flex items-center justify-center">
+            <canvas ref="qrCanvas" />
+          </div>
+        </ClientOnly>
       </template>
     </UModal>
 
@@ -88,8 +156,15 @@ async function shortenURL() {
           spotlight
         >
           <template #leading>
-            <UIcon :name="item.icon" class="size-5 shrink-0 text-primary" />
-            <UBadge v-if="item.upcoming" label="Upcoming" class="ml-2.5" />
+            <UIcon
+              :name="item.icon"
+              class="size-5 shrink-0 text-primary"
+            />
+            <UBadge
+              v-if="item.upcoming"
+              label="Upcoming"
+              class="ml-2.5"
+            />
           </template>
         </UPageCard>
       </UPageGrid>
