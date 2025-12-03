@@ -18,8 +18,8 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      backendBaseUrl:
-        process.env.BACKEND_BASE_URL
+      backendBaseUrl: process.env.BACKEND_BASE_URL,
+      port: process.env.PORT
     }
   },
 
