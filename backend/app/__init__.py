@@ -15,7 +15,7 @@ _pool: Optional[ConnectionPool] = None
 
 def _generate_short_id(length: int = 6) -> str:
   """Generate a short id comprised of hex characters."""
-  return secrets.token_hex(length // 2)
+  return secrets.token_hex(length // 2).upper()
 
 
 def _init_pool() -> ConnectionPool:
