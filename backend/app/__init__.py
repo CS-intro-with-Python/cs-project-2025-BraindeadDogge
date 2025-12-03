@@ -159,12 +159,15 @@ def create_app():
     if not original_url:
       return jsonify({"error": "Missing required 'url' query parameter"}), 400
     # @todo check if url is valid (https is req)
-    
+
     short_id = _get_or_create_short_id(pool, original_url)
 
     proto = request.headers.get("X-Forwarded-Proto", request.scheme)
     host = request.headers.get("X-Forwarded-Host", request.host)
-    short_link = f"{proto}://{host}/{short_id}"
+
+    actual_host = os.getenv("SHORT_HOST", host)
+
+    short_link = f"{proto}://{actual_host}/{short_id}"
     return jsonify(
       {
         "original_url": original_url,
