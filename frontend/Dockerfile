@@ -34,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libsqlite3-0 \
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
+ARG NUXT_PUBLIC_BACKEND_BASE_URL
 
 WORKDIR /app
 COPY --from=build /app/.output ./.output
