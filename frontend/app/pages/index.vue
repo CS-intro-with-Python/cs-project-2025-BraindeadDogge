@@ -8,10 +8,6 @@ const { data: page } = await useAsyncData('index', () =>
 )
 const config = useRuntimeConfig()
 
-console.log('test:', config.public)
-console.log('test2:', process.env.BACKEND_BASE_URL)
-console.log('test3:', process.env.PORT)
-
 const title = page.value?.seo?.title || page.value?.title
 const description = page.value?.seo?.description || page.value?.description
 
